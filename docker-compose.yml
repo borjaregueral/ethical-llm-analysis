@@ -1,0 +1,98 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SANDBOXED LLM SECURITY DEMO — Cybersecurity Class
+#
+# Network: INTERNAL — containers have NO outbound internet access.
+# Port 8000 bound to 127.0.0.1 only (never exposed externally).
+#
+# Usage:
+#   Development (live-reload bind mounts via override):
+#     docker compose up --build
+#
+#   Stable / share with students (no bind mounts, production defaults):
+#     docker compose -f docker-compose.yml up --build -d
+#
+# Model mode (set in .env or export before running):
+#   MODEL_MODE=mock     — fast, deterministic, no ML required  (default)
+#   MODEL_MODE=instruct — real Qwen2.5-0.5B-Instruct model, ~4 GB image
+# ═══════════════════════════════════════════════════════════════════════════════
+
+networks:
+  sandbox_net:
+    driver: bridge
+    internal: true        # Containers cannot reach the internet
+
+services:
+
+  # ── Vulnerable LLM API Server ────────────────────────────────────────────────
+  llm-server:
+    build:
+      context: ./llm-server
+      dockerfile: Dockerfile
+      args:
+        MODEL_MODE: ${MODEL_MODE:-mock}   # bakes the right deps into the image
+    container_name: llm_server
+    ports:
+      - "127.0.0.1:8000:8000"            # localhost-only, never external
+    networks:
+      - sandbox_net
+    environment:
+      - SECRET_TOKEN=${SECRET_TOKEN:-FLAG{pr0mpt_1nj3ct10n_pwnd}}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-s3cr3t-adm1n-pass}
+      - MODEL_MODE=${MODEL_MODE:-mock}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true           # prevent privilege escalation
+    cap_drop:
+      - ALL                              # drop all Linux capabilities
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M                   # raise to 4G for instruct mode
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ── Attacker Container (demo scripts + notebooks) ────────────────────────────
+  attacker:
+    build:
+      context: ./demos
+      dockerfile: Dockerfile
+    container_name: attacker
+    networks:
+      - sandbox_net
+    environment:
+      - TARGET_URL=http://llm-server:8000
+    depends_on:
+      llm-server:
+        condition: service_healthy
+    restart: "no"
+    command: tail -f /dev/null
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M

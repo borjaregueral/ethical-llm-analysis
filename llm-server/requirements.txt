@@ -1,0 +1,6 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+# Uncomment for real GPT-2 mode (adds ~500 MB to image build time):
+torch==2.4.1
+transformers==4.44.2

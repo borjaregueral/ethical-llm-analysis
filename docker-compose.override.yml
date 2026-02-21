@@ -1,0 +1,24 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Development overrides — automatically merged when you run `docker compose up`
+#
+# Adds live-reload bind mounts so you can edit app/ or demos/ on the host
+# and see changes without rebuilding the image.
+#
+# NOT applied when you run:
+#   docker compose -f docker-compose.yml up   (production / student deployment)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  llm-server:
+    volumes:
+      - ./llm-server/app:/workspace/app:ro   # edit code → restart uvicorn to reload
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G                         # headroom for instruct mode locally
+
+  attacker:
+    volumes:
+      - ./demos:/workspace/demos:ro
+      - ./notebooks:/workspace/notebooks:ro
