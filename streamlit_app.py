@@ -248,31 +248,29 @@ with st.sidebar:
     st.divider()
 
     st.markdown("### Model backend")
+    if "model_mode" not in st.session_state:
+        st.session_state["model_mode"] = "mock"
     model_mode = st.radio(
         "Model backend",
         ["mock", "Qwen2.5-0.5B-Instruct"],
-        index=0 if st.session_state.get("model_mode", "mock") == "mock" else 1,
+        key="model_mode",
         label_visibility="collapsed",
         help="mock = instant, deterministic | Qwen2.5-0.5B-Instruct = real instruction-following LLM (~2–5 s/response)",
     )
-    if model_mode != st.session_state.get("model_mode"):
-        st.session_state["model_mode"] = model_mode
-        st.rerun()
-    st.session_state["model_mode"] = model_mode
 
-    loading_label = "Loading Qwen2.5-0.5B-Instruct…" if model_mode != "mock" else "Loading mock model…"
-    with st.spinner(loading_label):
-        if model_mode == "mock":
-            get_model(model_mode)
-        else:
-            import requests as _req
-            try:
-                _req.get(f"{API_URL}/health", timeout=5).raise_for_status()
-            except Exception:
-                st.info("ℹ️ Qwen requires the local Docker server (`docker compose up`). Falling back to mock mode.")
-                st.session_state["model_mode"] = "mock"
-                st.rerun()
-    st.success(f"{'Qwen2.5-0.5B-Instruct' if model_mode != 'mock' else 'Mock'} ready")
+    if model_mode == "mock":
+        with st.spinner("Loading mock model…"):
+            get_model("mock")
+        st.success("Mock ready")
+    else:
+        import requests as _req
+        try:
+            _req.get(f"{API_URL}/health", timeout=5).raise_for_status()
+            st.success("Qwen2.5-0.5B-Instruct ready")
+        except Exception:
+            st.warning("⚠️ Qwen needs the local Docker server (`docker compose up`). Switching to mock.")
+            st.session_state["model_mode"] = "mock"
+            st.rerun()
 
     st.divider()
 

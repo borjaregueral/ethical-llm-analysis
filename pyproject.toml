@@ -4,17 +4,17 @@ version = "0.1.0"
 description = "Sandboxed LLM security demo for cybersecurity class"
 requires-python = ">=3.11"
 
+# Local dev dependencies (managed by uv).
+# Streamlit Cloud uses requirements.txt instead.
 dependencies = [
-    # Host-side: demo scripts + notebooks
     "requests>=2.32",
     "rich>=13.9",
     "jupyter>=1.1",
-    # LLM server (also used by Docker image)
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.9",
     "streamlit>=1.54.0",
 ]
 
-[tool.uv.sources]
-# All packages from PyPI (default)
+[tool.uv]
+package = false          # not an installable package — suppress "no source dir" errors
