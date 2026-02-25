@@ -264,8 +264,9 @@ with st.sidebar:
             try:
                 _req.get(f"{API_URL}/health", timeout=5).raise_for_status()
             except Exception:
-                st.error("⚠️ Docker LLM server unreachable — run: docker compose up")
-                st.stop()
+                st.info("ℹ️ Qwen requires the local Docker server (`docker compose up`). Falling back to mock mode.")
+                st.session_state["model_mode"] = "mock"
+                st.rerun()
     st.success(f"{'Qwen2.5-0.5B-Instruct' if model_mode != 'mock' else 'Mock'} ready")
 
     st.divider()
