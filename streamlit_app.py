@@ -187,16 +187,24 @@ YOUR RULES:
 """
 
 
-# ── Model loader (cached per mode) ────────────────────────────────────────────
+# ── Model loader (mock only — instruct mode uses the Docker API) ───────────────
 @st.cache_resource(show_spinner=False)
 def get_model(mode: str):
-    os.environ["MODEL_MODE"] = mode
+    os.environ["MODEL_MODE"] = "mock"
     return load_model(SYSTEM_PROMPT)
+
+
+API_URL = os.environ.get("LLM_API_URL", "http://localhost:8000")
 
 
 def send(payload: str) -> dict:
     mode = st.session_state.get("model_mode", "mock")
-    return get_model(mode).generate(payload, max_tokens=200)
+    if mode == "mock":
+        return get_model(mode).generate(payload, max_tokens=200)
+    import requests as _req
+    resp = _req.post(f"{API_URL}/chat/debug", json={"message": payload, "max_tokens": 200}, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
 
 
 # ── Result card ────────────────────────────────────────────────────────────────
@@ -249,7 +257,15 @@ with st.sidebar:
 
     loading_label = "Loading Qwen2.5-0.5B-Instruct…" if model_mode != "mock" else "Loading mock model…"
     with st.spinner(loading_label):
-        get_model(model_mode)   # warm up
+        if model_mode == "mock":
+            get_model(model_mode)
+        else:
+            import requests as _req
+            try:
+                _req.get(f"{API_URL}/health", timeout=5).raise_for_status()
+            except Exception:
+                st.error("⚠️ Docker LLM server unreachable — run: docker compose up")
+                st.stop()
     st.success(f"{'Qwen2.5-0.5B-Instruct' if model_mode != 'mock' else 'Mock'} ready")
 
     st.divider()

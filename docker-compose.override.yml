@@ -12,11 +12,14 @@ services:
   llm-server:
     volumes:
       - ./llm-server/app:/workspace/app:ro   # edit code → restart uvicorn to reload
+      - ${HOME}/.cache/huggingface:/hf_cache # host HF model cache (read-only at runtime)
+    environment:
+      - HF_HOME=/hf_cache                    # point transformers at the mounted cache
     deploy:
       resources:
         limits:
           cpus: "2.0"
-          memory: 1G                         # headroom for instruct mode locally
+          memory: 4G                         # Qwen2.5-0.5B needs ~2-3 GB
 
   attacker:
     volumes:
