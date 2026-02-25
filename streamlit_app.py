@@ -248,8 +248,23 @@ with st.sidebar:
     st.divider()
 
     st.markdown("### Model backend")
+
+    # Initialise state on first run
     if "model_mode" not in st.session_state:
         st.session_state["model_mode"] = "mock"
+
+    # Check Docker availability BEFORE the widget renders so we can
+    # safely correct session_state while the key is not yet bound.
+    _qwen_ok = False
+    if st.session_state["model_mode"] == "Qwen2.5-0.5B-Instruct":
+        import requests as _req
+        try:
+            _qwen_ok = _req.get(f"{API_URL}/health", timeout=3).ok
+        except Exception:
+            _qwen_ok = False
+        if not _qwen_ok:
+            st.session_state["model_mode"] = "mock"  # reset before widget renders
+
     model_mode = st.radio(
         "Model backend",
         ["mock", "Qwen2.5-0.5B-Instruct"],
@@ -262,15 +277,10 @@ with st.sidebar:
         with st.spinner("Loading mock model…"):
             get_model("mock")
         st.success("Mock ready")
+    elif _qwen_ok:
+        st.success("Qwen2.5-0.5B-Instruct ready")
     else:
-        import requests as _req
-        try:
-            _req.get(f"{API_URL}/health", timeout=5).raise_for_status()
-            st.success("Qwen2.5-0.5B-Instruct ready")
-        except Exception:
-            st.warning("⚠️ Qwen needs the local Docker server (`docker compose up`). Switching to mock.")
-            st.session_state["model_mode"] = "mock"
-            st.rerun()
+        st.info("ℹ️ Qwen requires the local Docker server (`docker compose up`).")
 
     st.divider()
 
