@@ -249,38 +249,45 @@ with st.sidebar:
 
     st.markdown("### Model backend")
 
-    # Initialise state on first run
     if "model_mode" not in st.session_state:
         st.session_state["model_mode"] = "mock"
+    if "_qwen_status" not in st.session_state:
+        st.session_state["_qwen_status"] = None  # None | "ok" | "unavailable"
 
-    # Check Docker availability BEFORE the widget renders so we can
-    # safely correct session_state while the key is not yet bound.
-    _qwen_ok = False
-    if st.session_state["model_mode"] == "Qwen2.5-0.5B-Instruct":
-        import requests as _req
-        try:
-            _qwen_ok = _req.get(f"{API_URL}/health", timeout=3).ok
-        except Exception:
-            _qwen_ok = False
-        if not _qwen_ok:
-            st.session_state["model_mode"] = "mock"  # reset before widget renders
+    def _on_model_select():
+        """on_change callback — runs before script reruns, safe to modify own key."""
+        if st.session_state["model_mode"] == "Qwen2.5-0.5B-Instruct":
+            import requests as _req
+            try:
+                ok = _req.get(f"{API_URL}/health", timeout=3).ok
+            except Exception:
+                ok = False
+            if ok:
+                st.session_state["_qwen_status"] = "ok"
+            else:
+                st.session_state["model_mode"] = "mock"
+                st.session_state["_qwen_status"] = "unavailable"
+        else:
+            st.session_state["_qwen_status"] = None
 
     model_mode = st.radio(
         "Model backend",
         ["mock", "Qwen2.5-0.5B-Instruct"],
         key="model_mode",
+        on_change=_on_model_select,
         label_visibility="collapsed",
-        help="mock = instant, deterministic | Qwen2.5-0.5B-Instruct = real instruction-following LLM (~2–5 s/response)",
+        help="mock = instant, deterministic | Qwen2.5-0.5B-Instruct = real LLM (requires local Docker server)",
     )
 
     if model_mode == "mock":
         with st.spinner("Loading mock model…"):
             get_model("mock")
-        st.success("Mock ready")
-    elif _qwen_ok:
-        st.success("Qwen2.5-0.5B-Instruct ready")
+        if st.session_state["_qwen_status"] == "unavailable":
+            st.warning("⚠️ Qwen server not reachable. Start it with `docker compose up`. Staying on mock.")
+        else:
+            st.success("Mock ready")
     else:
-        st.info("ℹ️ Qwen requires the local Docker server (`docker compose up`).")
+        st.success("Qwen2.5-0.5B-Instruct ready")
 
     st.divider()
 
